@@ -66,6 +66,12 @@ export default function Schedule() {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     
+    // CONFIRMATION
+    if (!window.confirm('Voulez-vous vraiment mettre en ligne une nouvelle version de l\'emploi du temps ? Cela remplacera l\'affichage actuel pour tous les étudiants.')) {
+      e.target.value = ''; // Reset input
+      return;
+    }
+
     const file = e.target.files[0];
     setUploading(true);
 

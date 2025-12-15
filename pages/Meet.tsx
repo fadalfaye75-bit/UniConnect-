@@ -63,6 +63,12 @@ export default function Meet() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // CONFIRMATION
+    if (!window.confirm('Confirmez-vous l\'ajout de ce lien de visioconférence ?')) {
+      return;
+    }
+
     if (submitting) return;
     setSubmitting(true);
 

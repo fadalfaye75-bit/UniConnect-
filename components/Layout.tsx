@@ -137,7 +137,7 @@ export default function Layout() {
 
         <div className="p-4">
           <NavLink to="/profile" className="flex items-center gap-3 mb-6 p-3 bg-primary-50 dark:bg-gray-700/50 rounded-lg border border-primary-100 dark:border-gray-600 hover:bg-primary-100 dark:hover:bg-gray-700 transition-colors cursor-pointer group">
-             <img src={user?.avatar} alt="Profile" className="w-10 h-10 rounded-full object-cover border-2 border-primary-200 group-hover:border-primary-400 transition-colors" />
+             <img src={user?.avatar} alt="Profile" className="w-10 h-10 rounded-full object-cover border-4 border-primary-200 group-hover:border-primary-400 transition-colors" />
              <div className="flex-1 min-w-0">
                <p className="text-sm font-semibold truncate text-gray-800 dark:text-white">{user?.name}</p>
                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">

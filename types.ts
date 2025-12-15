@@ -11,6 +11,7 @@ export interface User {
   role: UserRole;
   className: string; // e.g., "Licence 2 - Info"
   avatar?: string;
+  schoolName?: string;
 }
 
 export interface Announcement {

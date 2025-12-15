@@ -130,6 +130,11 @@ export default function Polls() {
   };
 
   const handleToggleStatus = async (poll: Poll) => {
+    // CONFIRMATION
+    if (!window.confirm(poll.isActive ? 'Voulez-vous vraiment clôturer ce sondage ? Les votes seront suspendus.' : 'Voulez-vous vraiment rouvrir ce sondage ?')) {
+      return;
+    }
+
     try {
       const newStatus = !poll.isActive;
       const { error } = await supabase
@@ -180,6 +185,11 @@ export default function Polls() {
     const validOptions = options.filter(o => o.trim() !== '');
     if (validOptions.length < 2) return alert('Il faut au moins 2 options');
     
+    // CONFIRMATION
+    if (!window.confirm('Voulez-vous lancer ce sondage maintenant ?')) {
+      return;
+    }
+
     if (submitting) return;
     setSubmitting(true);
 

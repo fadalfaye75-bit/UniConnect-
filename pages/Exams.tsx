@@ -65,6 +65,12 @@ export default function Exams() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // CONFIRMATION
+    if (!window.confirm(`Confirmez-vous l'ajout de l'examen de ${formData.subject} le ${new Date(formData.date).toLocaleDateString()} ?`)) {
+      return;
+    }
+
     if (submitting) return;
     setSubmitting(true);
 

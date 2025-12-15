@@ -27,6 +27,9 @@ export default function Profile() {
       return;
     }
 
+    // CONFIRMATION
+    if (!window.confirm('Êtes-vous sûr de vouloir modifier votre mot de passe ?')) return;
+
     setLoading(true);
 
     try {
@@ -40,11 +43,23 @@ export default function Profile() {
       setPasswords({ newPassword: '', confirmPassword: '' });
     } catch (error: any) {
       console.error('Password update error:', error);
-      // Handle "New password should be different from the old password" error
-      if (error.message && (error.message.includes('different from the old password') || error.message.includes('New password should be different'))) {
-        addNotification({ title: 'Attention', message: 'Le nouveau mot de passe doit être différent de l\'ancien.', type: 'warning' });
+      
+      // Gestion spécifique pour le cas où le mot de passe est identique à l'ancien
+      if (error.message && (
+          error.message.includes('different from the old password') || 
+          error.message.includes('New password should be different')
+      )) {
+        addNotification({ 
+          title: 'Mot de passe inchangé', 
+          message: 'Le nouveau mot de passe ne peut pas être identique à votre mot de passe actuel.', 
+          type: 'warning' 
+        });
       } else {
-        addNotification({ title: 'Erreur', message: error.message || 'Impossible de modifier le mot de passe.', type: 'alert' });
+        addNotification({ 
+          title: 'Erreur', 
+          message: error.message || 'Impossible de modifier le mot de passe.', 
+          type: 'alert' 
+        });
       }
     } finally {
       setLoading(false);

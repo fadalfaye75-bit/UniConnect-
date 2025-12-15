@@ -120,6 +120,12 @@ export default function Announcements() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // CONFIRMATION DIALOG ADDED HERE
+    if (!window.confirm('Êtes-vous sûr de vouloir publier cette annonce ? Elle sera visible par tous les étudiants concernés.')) {
+      return;
+    }
+
     if (submitting) return;
     setSubmitting(true);
 
