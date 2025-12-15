@@ -2,9 +2,7 @@ import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
-import { ChatProvider } from './context/ChatContext';
 import Layout from './components/Layout';
-import GeminiChat from './components/GeminiChat';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Announcements from './pages/Announcements';
@@ -21,7 +19,6 @@ const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
   return (
     <>
       {children}
-      <GeminiChat />
     </>
   );
 };
@@ -53,11 +50,9 @@ export default function App() {
   return (
     <AuthProvider>
       <NotificationProvider>
-        <ChatProvider>
-          <HashRouter>
-            <AppRoutes />
-          </HashRouter>
-        </ChatProvider>
+        <HashRouter>
+          <AppRoutes />
+        </HashRouter>
       </NotificationProvider>
     </AuthProvider>
   );

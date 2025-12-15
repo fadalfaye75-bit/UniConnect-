@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { FileText, Download, Clock, Upload, History, Loader2, Trash2, AlertCircle } from 'lucide-react';
+import { FileText, Download, Clock, Upload, History, Loader2, Trash2, AlertCircle, FileSpreadsheet, Edit, Save, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { UserRole, ScheduleFile } from '../types';
 import { useNotification } from '../context/NotificationContext';
 import { supabase } from '../services/supabaseClient';
+import Modal from '../components/Modal';
 
 export default function Schedule() {
   const { user, adminViewClass } = useAuth();
@@ -12,6 +13,13 @@ export default function Schedule() {
   const [schedules, setSchedules] = useState<ScheduleFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+
+  // Edit State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState<ScheduleFile | null>(null);
+  const [editVersion, setEditVersion] = useState('');
+  const [editFile, setEditFile] = useState<File | null>(null);
+  const [updating, setUpdating] = useState(false);
 
   // 1. PERMISSIONS
   const canManage = user?.role === UserRole.ADMIN || user?.role === UserRole.DELEGATE;
@@ -78,9 +86,9 @@ export default function Schedule() {
     try {
       // Logic for new version number
       const newVersionNum = currentSchedule 
-        ? parseInt(currentSchedule.version.replace('V', '')) + 1 
+        ? parseInt(currentSchedule.version.replace(/[^0-9]/g, '')) + 1 
         : 1;
-      const versionLabel = `V${newVersionNum}`;
+      const versionLabel = `V${isNaN(newVersionNum) ? 1 : newVersionNum}`;
       
       const targetClass = (user?.role === UserRole.ADMIN && adminViewClass) ? adminViewClass : (user?.className || 'Général');
       
@@ -126,28 +134,76 @@ export default function Schedule() {
     }
   };
 
+  // 5. UPDATE/EDIT LOGIC
+  const openEditModal = (schedule: ScheduleFile) => {
+    setEditingSchedule(schedule);
+    setEditVersion(schedule.version);
+    setEditFile(null);
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSchedule) return;
+
+    setUpdating(true);
+    try {
+      let finalUrl = editingSchedule.url;
+
+      // If a new file is selected, upload it
+      if (editFile) {
+        const fileExt = editFile.name.split('.').pop();
+        const fileName = `${editingSchedule.className.replace(/\s+/g, '-')}_${editVersion}_updated_${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('schedules')
+          .upload(fileName, editFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('schedules')
+          .getPublicUrl(fileName);
+        
+        finalUrl = publicUrl;
+      }
+
+      // Update Database
+      const { error: dbError } = await supabase
+        .from('schedules')
+        .update({
+          version: editVersion,
+          url: finalUrl
+        })
+        .eq('id', editingSchedule.id);
+
+      if (dbError) throw dbError;
+
+      addNotification({ title: 'Modifié', message: 'L\'emploi du temps a été mis à jour.', type: 'success' });
+      fetchSchedules();
+      setIsEditModalOpen(false);
+
+    } catch (error: any) {
+      console.error('Update error:', error);
+      addNotification({ title: 'Erreur', message: 'Impossible de modifier l\'entrée.', type: 'alert' });
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const handleDelete = async (id: string, url: string) => {
     if (!window.confirm("Voulez-vous vraiment supprimer cet emploi du temps ?")) return;
 
     try {
-      // 1. Delete from Storage
-      // Try to extract the filename from the public URL
+      // 1. Delete from Storage (Best effort)
       const bucketName = 'schedules';
-      // URL format often ends with /schedules/filename.ext
       const pathIndex = url.lastIndexOf(`/${bucketName}/`);
       
       if (pathIndex !== -1) {
-        const relativePath = url.substring(pathIndex + bucketName.length + 2); // +2 for surrounding slashes
+        const relativePath = url.substring(pathIndex + bucketName.length + 2);
         const decodedPath = decodeURIComponent(relativePath);
-        
         if (decodedPath) {
-          const { error: storageError } = await supabase.storage
-            .from(bucketName)
-            .remove([decodedPath]);
-            
-          if (storageError) {
-             console.warn("Storage delete failed (orphan file might exist):", storageError);
-          }
+          await supabase.storage.from(bucketName).remove([decodedPath]);
         }
       }
 
@@ -189,7 +245,7 @@ export default function Schedule() {
             <span className="hidden sm:inline">{uploading ? 'Envoi...' : 'Nouvelle Version'}</span>
             <input 
               type="file" 
-              accept=".pdf,.png,.jpg,.jpeg" 
+              accept=".xlsx,.xls,.csv,.pdf" 
               className="hidden" 
               onChange={handleFileUpload} 
               disabled={uploading}
@@ -200,12 +256,12 @@ export default function Schedule() {
 
       {!currentSchedule ? (
         <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
-           <div className="bg-gray-50 dark:bg-gray-700/50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
-             <FileText size={40} />
+           <div className="bg-green-50 dark:bg-green-900/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-green-500">
+             <FileSpreadsheet size={40} />
            </div>
            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Aucun emploi du temps</h3>
            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1 max-w-xs mx-auto">
-             L'emploi du temps n'a pas encore été publié pour cette classe.
+             L'emploi du temps (Excel/PDF) n'a pas encore été publié pour cette classe.
            </p>
            {canManage && <p className="text-xs mt-4 text-primary-500 font-semibold">Utilisez le bouton en haut à droite pour ajouter le premier.</p>}
         </div>
@@ -220,13 +276,13 @@ export default function Schedule() {
             </h3>
             <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 relative overflow-hidden group hover:border-primary-200 dark:hover:border-primary-800 transition-colors">
               <div className="absolute top-0 right-0 p-8 opacity-[0.03] dark:opacity-[0.05] pointer-events-none">
-                  <FileText size={200} />
+                  <FileSpreadsheet size={200} />
               </div>
               
               <div className="flex items-start justify-between mb-8 relative z-10">
                 <div className="flex gap-4">
-                  <div className="p-4 bg-primary-50 dark:bg-primary-900/20 rounded-2xl text-primary-600 dark:text-primary-400 border border-primary-100 dark:border-primary-900/50">
-                    <FileText size={32} />
+                  <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-2xl text-green-600 dark:text-green-400 border border-green-100 dark:border-green-900/50">
+                    <FileSpreadsheet size={32} />
                   </div>
                   <div>
                     <h3 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">Planning Semestriel</h3>
@@ -261,13 +317,22 @@ export default function Schedule() {
                   <Download size={20} /> Télécharger / Voir
                 </a>
                 {canManage && (
-                   <button 
-                     onClick={() => handleDelete(currentSchedule.id, currentSchedule.url)}
-                     className="p-3.5 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 border border-red-100 dark:border-red-900/50 transition-colors"
-                     title="Supprimer cette version"
-                   >
-                     <Trash2 size={20} />
-                   </button>
+                  <>
+                     <button 
+                       onClick={() => openEditModal(currentSchedule)}
+                       className="p-3.5 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 border border-blue-100 dark:border-blue-900/50 transition-colors"
+                       title="Modifier"
+                     >
+                       <Edit size={20} />
+                     </button>
+                     <button 
+                       onClick={() => handleDelete(currentSchedule.id, currentSchedule.url)}
+                       className="p-3.5 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 border border-red-100 dark:border-red-900/50 transition-colors"
+                       title="Supprimer cette version"
+                     >
+                       <Trash2 size={20} />
+                     </button>
+                  </>
                 )}
               </div>
             </div>
@@ -284,7 +349,7 @@ export default function Schedule() {
                   history.map(sch => (
                     <div key={sch.id} className="group flex items-center justify-between p-3 m-1 bg-white dark:bg-gray-800 rounded-xl border border-transparent hover:border-gray-200 dark:hover:border-gray-600 shadow-sm transition-all">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 font-bold text-xs">
+                        <div className="w-8 h-8 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center text-green-600 font-bold text-xs">
                            {sch.version}
                         </div>
                         <div>
@@ -292,14 +357,19 @@ export default function Schedule() {
                           <div className="font-bold text-gray-700 dark:text-gray-200 text-sm">Archives</div>
                         </div>
                       </div>
-                      <div className="flex items-center">
+                      <div className="flex items-center gap-1">
                         <a href={sch.url} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-400 hover:text-primary-500 transition-colors">
                           <Download size={16} />
                         </a>
                         {canManage && (
-                          <button onClick={() => handleDelete(sch.id, sch.url)} className="p-2 text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
-                            <Trash2 size={16} />
-                          </button>
+                          <>
+                            <button onClick={() => openEditModal(sch)} className="p-2 text-gray-400 hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100">
+                              <Edit size={16} />
+                            </button>
+                            <button onClick={() => handleDelete(sch.id, sch.url)} className="p-2 text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
+                              <Trash2 size={16} />
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -314,6 +384,67 @@ export default function Schedule() {
           </div>
         </div>
       )}
+
+      {/* EDIT MODAL */}
+      <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Modifier l'emploi du temps">
+        <form onSubmit={handleUpdateSubmit} className="space-y-4">
+          <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 p-3 rounded-lg text-xs">
+            Vous modifiez l'entrée : <strong>{editingSchedule?.version}</strong> ({new Date(editingSchedule?.uploadDate || '').toLocaleDateString()})
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Nom de la version</label>
+            <input 
+              type="text" 
+              required
+              value={editVersion}
+              onChange={e => setEditVersion(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-primary-300"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Remplacer le fichier (Optionnel)</label>
+            <div className="flex items-center gap-2">
+              <label className="cursor-pointer flex-1 flex items-center justify-center gap-2 px-4 py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                {editFile ? (
+                  <span className="text-primary-600 font-medium flex items-center gap-2">
+                    <FileSpreadsheet size={20} /> {editFile.name}
+                  </span>
+                ) : (
+                  <span className="text-gray-400 text-sm">Cliquez pour remplacer le fichier Excel/PDF</span>
+                )}
+                <input 
+                  type="file" 
+                  accept=".xlsx,.xls,.csv,.pdf" 
+                  className="hidden" 
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) setEditFile(e.target.files[0]);
+                  }}
+                />
+              </label>
+              {editFile && (
+                <button 
+                  type="button" 
+                  onClick={() => setEditFile(null)} 
+                  className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                >
+                  <X size={20} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={updating}
+            className="w-full bg-primary-500 hover:bg-primary-600 text-white font-bold py-3 rounded-lg shadow-lg shadow-primary-500/20 transition-all active:scale-[0.98] disabled:opacity-70 flex items-center justify-center gap-2"
+          >
+             {updating ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
+             {updating ? 'Enregistrement...' : 'Enregistrer les modifications'}
+          </button>
+        </form>
+      </Modal>
     </div>
   );
 }

@@ -74,6 +74,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           email: data.email || email,
           role: data.role as UserRole, // Role comes from DB now
           className: data.class_name || 'Général',
+          schoolName: data.school_name,
           avatar: data.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.full_name}`
         });
       }

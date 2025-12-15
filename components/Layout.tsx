@@ -110,6 +110,13 @@ export default function Layout() {
     }
   };
 
+  const handleClearNotifications = () => {
+    if (notifications.length === 0) return;
+    if (window.confirm('Voulez-vous vraiment effacer toutes les notifications ?')) {
+      clearNotifications();
+    }
+  };
+
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
       
@@ -232,7 +239,7 @@ export default function Layout() {
                               <Check size={16} />
                             </button>
                          )}
-                         <button onClick={clearNotifications} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors" title="Effacer tout">
+                         <button onClick={handleClearNotifications} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors" title="Effacer tout">
                            <Trash2 size={16} />
                          </button>
                        </div>
